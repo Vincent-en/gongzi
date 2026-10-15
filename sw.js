@@ -1,5 +1,5 @@
 /* 离线缓存：让它在手机上没网也能打开（在线版） */
-var CACHE = "wage-pub-v6";
+var CACHE = "wage-pub-v7";
 var ASSETS = [
   "./",
   "./index.html",

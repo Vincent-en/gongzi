@@ -20,11 +20,12 @@
   --danger:#A8543F; --dsoft:#F6E7E4;
   --cr:18px; --br:12px;
 }
-/* touch-action:manipulation —— 关掉「双击放大」。
-   手机上连点两下（比如快速点「＋」或连点日期）会触发浏览器双击缩放，整页被放大很难受。
-   只关双击缩放，两指捏合缩放仍然可用，老人真要看大还能放大。 */
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+/* 关掉「双击放大」。
+   manipulation 等价于 pan-x pan-y pinch-zoom，但个别 iOS 版本只认后者，
+   所以这里直接写全，兼容面更广。
+   注意：只关双击缩放，两指捏合缩放保留。 */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:pan-x pan-y pinch-zoom}
+html{-webkit-text-size-adjust:100%;touch-action:pan-x pan-y pinch-zoom}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   color:var(--ink); background:var(--bg); line-height:1.65;
@@ -231,6 +232,8 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
 .acct-go{margin-top:17px;height:62px;font-size:20px;letter-spacing:2px}
 .acct-rows{margin-top:17px}
 .acct-rows .me-row:last-child{margin-bottom:0}
+/* 版本号：让用户能一眼确认手机上跑的是哪一版 */
+.ver{text-align:center;font-size:13.5px;color:var(--ink2);letter-spacing:1.5px;margin-top:22px;font-weight:600}
 
 /* 游客提示条（主页顶部）：文字 + 单独「登录」+ 右侧小叉 */
 .gwarn{
@@ -576,6 +579,8 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
       </div>
     </div>
 
+    <div class="ver" id="verLine">—</div>
+
   </section>
 </div>
 
@@ -663,6 +668,8 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
 (function(){
 "use strict";
 var KEY="wage_calc_v2";
+/* 版本号：改完 UI 就 +1，和 gongzi/sw.js 里的 CACHE 号保持一致，方便核对手机上是哪一版 */
+var VER="7";
 function $(i){return document.getElementById(i);}
 function pad(n){return (n<10?"0":"")+n;}
 function ymd(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
@@ -1283,6 +1290,32 @@ function confetti(){
 setRateMode(!rateSet());
 renderAll();
 renderAcct();
+
+/* ========== 双击放大：iOS 兜底 ==========
+   上面 CSS 的 touch-action 在安卓/Chrome 上就够用，但部分 iOS 版本会无视它。
+   这里再补一道：300 毫秒内第二次抬手，就吃掉这次的默认行为，
+   浏览器不把它当「双击」，也就不会放大。两指捏合不受影响。 */
+(function blockDoubleTap(){
+  var last=0, sx=0, sy=0, moved=false;
+  document.addEventListener("touchstart",function(e){
+    if(e.touches&&e.touches.length===1){
+      sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false;
+    }else{
+      moved=true;              // 两指及以上（捏合）→ 一律不干预
+    }
+  },{passive:true});
+  document.addEventListener("touchmove",function(e){
+    if(moved||!e.touches||e.touches.length!==1)return;
+    if(Math.abs(e.touches[0].clientX-sx)>10||Math.abs(e.touches[0].clientY-sy)>10)moved=true;
+  },{passive:true});
+  document.addEventListener("touchend",function(e){
+    if(moved||(e.touches&&e.touches.length>0))return;   // 在滑动 / 还有手指按着 → 不管
+    var now=Date.now();
+    if(now-last<=300&&e.cancelable)e.preventDefault();  // 紧接着的第二下 → 吃掉，不让它放大
+    last=now;
+  },{passive:false});
+})();
+$("verLine").textContent="版本 "+VER;
 
 /* 当成手机 app 用：在线打开时注册离线缓存（本地双击打开会自动跳过） */
 if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
