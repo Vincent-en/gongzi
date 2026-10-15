@@ -44,6 +44,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
   display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .15s;
 }
 .mbar .nav:active{background:var(--soft)}
+.mbar .nav svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .mbar .mt{
   flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:9px;
   border:1.5px solid var(--line);background:var(--card);border-radius:var(--br);
@@ -65,6 +66,14 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
 .hero .sub{font-size:17px;color:var(--ink2);letter-spacing:.5px}
 .hero .sub b{color:var(--ink);font-weight:700}
 .hero .sub .ym{font-weight:700;color:var(--ink)}
+/* 在看以前的月份时，给一个一键回到本月的出口 */
+.backnow{
+  display:none;margin-top:16px;border:1.5px solid var(--line);background:var(--card);
+  border-radius:99px;padding:9px 20px;font-family:inherit;font-size:16px;font-weight:700;
+  color:var(--accent);cursor:pointer;transition:all .15s;
+}
+.backnow.show{display:inline-block}
+.backnow:active{background:var(--soft);border-color:var(--accent)}
 
 /* 卡片 */
 .card{background:var(--card);border:1.5px solid var(--line);border-radius:var(--cr);padding:22px;margin-bottom:16px}
@@ -323,9 +332,22 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
   animation:dlgIn .22s cubic-bezier(.22,1,.36,1) both;
 }
 .cal-t{font-size:23px;font-weight:800;text-align:center;letter-spacing:1px;margin-bottom:16px}
+.cal-h{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.cal-h .cal-t{flex:1;min-width:0;margin-bottom:0;white-space:nowrap}
+.cal-nav{
+  flex:0 0 auto;width:46px;height:46px;border:1.5px solid var(--line);background:var(--bg);
+  border-radius:12px;color:var(--accent);cursor:pointer;line-height:1;
+  display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .15s;
+}
+.cal-nav:active{background:var(--soft)}
+/* 用矢量图标而不是「‹ ›」字符：两个字符在不同字体里的高低本来就不一样，
+   换成对称图形才能保证两个箭头永远在同一条水平线上 */
+.cal-nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .cal-w{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
 .cal-w span{text-align:center;font-size:15px;font-weight:700;color:var(--ink2)}
-.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+/* 固定 6 行：不管这个月排成 4/5/6 周，日历高度都不变，
+   这样翻月份时标题和两个箭头的位置不会上下跳 */
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,54px);gap:4px}
 .cal-g button{
   height:54px;border:none;background:none;border-radius:12px;font-family:inherit;
   font-size:23px;font-weight:700;color:var(--ink);cursor:pointer;
@@ -400,9 +422,10 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
     </div>
 
     <div class="hero">
-      <div class="lab">这个月赚了</div>
+      <div class="lab" id="monthLabel">这个月赚了</div>
       <div class="num"><span id="monthMoney">0.00</span><i>元</i></div>
       <div class="sub"><span class="ym" id="monthTitle">—</span> · 一共 <b id="monthHours">0</b> 小时 · 记了 <b id="monthDays">0</b> 天</div>
+      <button class="backnow" id="backThis">回到这个月</button>
     </div>
 
     <div class="card">
@@ -435,7 +458,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
     </div>
 
     <div class="card">
-      <div class="lt">这个月每天记的账</div>
+      <div class="lt" id="listTitle">这个月每天记的账</div>
       <div id="dayList"></div>
     </div>
 
@@ -445,12 +468,16 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
   <section class="view" id="vYear">
 
     <div class="mbar">
-      <button class="nav" id="prevY" aria-label="上一年">‹</button>
+      <button class="nav" id="prevY" aria-label="上一年">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.6 5.8 8.4 12l6.2 6.2"/></svg>
+      </button>
       <button class="mt" id="yearTitle" aria-label="选择年份">
         <span id="yearText">—</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 9.5 12 15l5.5-5.5"/></svg>
       </button>
-      <button class="nav" id="nextY" aria-label="下一年">›</button>
+      <button class="nav" id="nextY" aria-label="下一年">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 5.8 15.6 12l-6.2 6.2"/></svg>
+      </button>
     </div>
 
     <div class="hero">
@@ -582,7 +609,15 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
 <!-- 日历 -->
 <div class="mask" id="calMask">
   <div class="cal">
-    <div class="cal-t" id="calTitle">—</div>
+    <div class="cal-h">
+      <button class="cal-nav" id="calPrev" aria-label="上个月">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.6 5.8 8.4 12l6.2 6.2"/></svg>
+      </button>
+      <div class="cal-t" id="calTitle">—</div>
+      <button class="cal-nav" id="calNext" aria-label="下个月">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 5.8 15.6 12l-6.2 6.2"/></svg>
+      </button>
+    </div>
     <div class="cal-w"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
     <div class="cal-g" id="calGrid"></div>
     <button class="cal-x" id="calClose">关 闭</button>
@@ -681,6 +716,13 @@ function save(){
 }function toast(m){var t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove("show");},1800);}
 
 var curY=new Date().getFullYear();
+var viewYM=ymNow();     // 主页正在看的月份（默认本月，可翻到以前）
+var calYM=ymNow();      // 日历正在显示的月份
+function shiftYM(ym,d){
+  var y=parseInt(ym.slice(0,4),10), m=parseInt(ym.slice(5,7),10)-1+d;
+  var t=new Date(y,m,1);
+  return t.getFullYear()+"-"+pad(t.getMonth()+1);
+}
 function setYear(y){curY=y;renderYear();}
 var editId=null;
 /* 明细默认只露最近 3 天；每次换页都会自动收起 */
@@ -688,14 +730,18 @@ var listExpanded=false;
 function monthRec(ym){return S.records.filter(function(r){return r.date.slice(0,7)===ym;});}
 function yearRec(y){var ys=String(y);return S.records.filter(function(r){return r.date.slice(0,4)===ys;});}
 
-/* ========== 渲染：本月 ========== */
+/* ========== 渲染：主页（本月 / 以前某个月） ========== */
 function render(){
-  var ym=ymNow(), rs=monthRec(ym), total=0, hours=0;
+  var ym=viewYM, m=parseInt(ym.slice(5,7),10), isCur=(ym===ymNow());
+  var rs=monthRec(ym), total=0, hours=0;
   rs.forEach(function(r){total+=r.hours*S.rate;hours+=r.hours;});
-  $("monthTitle").textContent=ym.slice(0,4)+"年"+parseInt(ym.slice(5,7),10)+"月";
+  $("monthLabel").textContent=isCur?"这个月赚了":(m+"月赚了");
+  $("monthTitle").textContent=ym.slice(0,4)+"年"+m+"月";
   $("monthMoney").textContent=money(total);
   $("monthHours").textContent=tn(hours);
   $("monthDays").textContent=rs.length;
+  $("backThis").classList.toggle("show", !isCur);
+  $("listTitle").textContent=isCur?"这个月每天记的账":(m+"月每天记的账");
   if(!rateEditing)$("rateInput").value=S.rate>0?S.rate:"";
   $("rateShow").textContent=S.rate>0?tn(S.rate):"—";
   $("rateWarn").classList.toggle("show", !(S.rate>0));
@@ -704,7 +750,12 @@ function render(){
 function renderList(rs){
   rs.sort(function(a,b){return a.date<b.date?1:-1;});
   var box=$("dayList");
-  if(!rs.length){box.innerHTML='<div class="empty">这个月还没记账</div>';return;}
+  if(!rs.length){
+    box.innerHTML='<div class="empty">'
+      +(viewYM===ymNow()?"这个月还没记账":(parseInt(viewYM.slice(5,7),10)+"月还没记账"))
+      +'</div>';
+    return;
+  }
   var show=listExpanded?rs:rs.slice(0,3);
   var html=show.map(function(r){
     var w=WD[new Date(r.date+"T00:00:00").getDay()];
@@ -808,6 +859,8 @@ function renderAcct(){
   if(on)$("acctPhone").textContent=maskPhone(ACCT.current);
 }
 function afterAccountChange(){
+  viewYM=ymNow();
+  editId=null;
   endEdit();
   setRateMode(!rateSet());
   renderAll();
@@ -879,10 +932,14 @@ function dateLabel(v){
 function syncDateBtn(){$("dateText").textContent=dateLabel(di.value);}
 function setDate(v){di.value=v;syncDateBtn();}
 function resetDate(){setDate(ymd(new Date()));}
+/* 记完/改完：在看本月就跳回今天；在看以前的月份就留在原地，方便接着补那几天 */
+function resetDateSmart(){if(viewYM===ymNow())resetDate();}
 resetDate();
 
-function openCal(){
-  var now=new Date(), y=now.getFullYear(), m=now.getMonth(), today=ymd(now);
+/* ========== 日期：大字日历，可以翻到以前的月份 ========== */
+function drawCal(){
+  var y=parseInt(calYM.slice(0,4),10), m=parseInt(calYM.slice(5,7),10)-1;
+  var today=ymd(new Date());
   var first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
   $("calTitle").textContent=y+"年"+(m+1)+"月";
   var html="";
@@ -893,16 +950,32 @@ function openCal(){
     html+='<button class="'+cls.trim()+'" data-day="'+ds+'"'+(future?" disabled":"")+'>'+d+'</button>';
   }
   $("calGrid").innerHTML=html;
+}
+function openCal(){
+  calYM=(di.value||ymd(new Date())).slice(0,7);   // 打开时停在当前选中的那个月
+  drawCal();
   $("calMask").classList.add("show");
 }
 $("dateBtn").onclick=openCal;
+$("calPrev").onclick=function(){calYM=shiftYM(calYM,-1);drawCal();};
+$("calNext").onclick=function(){calYM=shiftYM(calYM,1);drawCal();};
 $("calClose").onclick=function(){$("calMask").classList.remove("show");};
 $("calMask").onclick=function(e){if(e.target===$("calMask"))$("calMask").classList.remove("show");};
 $("calGrid").onclick=function(e){
   var b=e.target.closest("[data-day]");
   if(!b||b.disabled)return;
-  setDate(b.getAttribute("data-day"));
+  var v=b.getAttribute("data-day");
+  setDate(v);
+  viewYM=v.slice(0,7);              // 主页跟着切到那一天所在的月份
   $("calMask").classList.remove("show");
+  render();
+};
+/* 在看以前的月份时，一键回到本月 */
+$("backThis").onclick=function(){
+  viewYM=ymNow();
+  listExpanded=false;
+  resetDate();
+  render();
 };
 
 /* ========== 时长：只让用户自己输入，限制两位小数 ========== */
@@ -936,7 +1009,7 @@ function endEdit(keepFeedback){
   $("editBar").classList.remove("show");
   if(!keepFeedback){
     hi.value="";
-    resetDate();
+    resetDateSmart();
     $("feedback").classList.remove("show");
   }
 }
@@ -963,7 +1036,7 @@ $("saveBtn").onclick=function(){
   if(isNaN(h)||h<=0){toast("时长要大于 0");hi.focus();return;}
   h=Math.round(h*100)/100;
   if(h>24){toast("一天最多 24 小时");hi.focus();return;}
-  if(d.slice(0,7)!==ymNow()){toast("只能记这个月的账");return;}
+  if(d>ymd(new Date())){toast("还没到的日子，先记不了");return;}
   if(!rateSet()){
     toast("请先去「我的」里填时薪");
     switchTab("vMe");
@@ -991,7 +1064,7 @@ $("saveBtn").onclick=function(){
     fb.classList.add("show");
     toast("已修改");
     hi.value="";
-    resetDate();
+    resetDateSmart();
     hi.blur();
     return;
   }
@@ -1010,7 +1083,7 @@ $("saveBtn").onclick=function(){
   fb.textContent="记好了："+d.slice(5)+" · "+tn(h)+" 小时 = "+money(h*S.rate)+" 元";
   fb.classList.add("show");
   hi.value="";
-  resetDate();
+  resetDateSmart();
   hi.blur();
   if(h>prevMax&&S.records.length>1)confetti();
 };
