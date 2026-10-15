@@ -1,5 +1,5 @@
 /* 离线缓存：让它在手机上没网也能打开（在线版） */
-var CACHE = "wage-pub-v1";
+var CACHE = "wage-pub-v5";
 var ASSETS = [
   "./",
   "./index.html",
@@ -32,8 +32,13 @@ self.addEventListener("activate", function (e) {
 
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
+  // 网页本体（HTML）强制绕过浏览器自带的 HTTP 缓存再取一次。
+  // 原因：GitHub Pages 给每个文件都发了 Cache-Control: max-age=600，
+  // 不绕过的话，改完上传后手机上最多 10 分钟还是旧页面。
+  var accept = e.request.headers.get("accept") || "";
+  var isDoc = e.request.mode === "navigate" || accept.indexOf("text/html") > -1;
   e.respondWith(
-    fetch(e.request).then(function (res) {
+    fetch(e.request, isDoc ? { cache: "reload" } : undefined).then(function (res) {
       var copy = res.clone();
       caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
       return res;

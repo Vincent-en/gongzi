@@ -20,8 +20,11 @@
   --danger:#A8543F; --dsoft:#F6E7E4;
   --cr:18px; --br:12px;
 }
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{-webkit-text-size-adjust:100%}
+/* touch-action:manipulation —— 关掉「双击放大」。
+   手机上连点两下（比如快速点「＋」或连点日期）会触发浏览器双击缩放，整页被放大很难受。
+   只关双击缩放，两指捏合缩放仍然可用，老人真要看大还能放大。 */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   color:var(--ink); background:var(--bg); line-height:1.65;
