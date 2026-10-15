@@ -450,7 +450,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
           <input type="number" id="hoursInput" inputmode="decimal" step="0.01" min="0" max="24" placeholder="0">
           <span class="hu">小时</span>
         </div>
-        <div class="hint">可以填小数，最多两位，比如 7.5 或 7.25</div>
+        <div class="hint" id="hoursHint">可以填小数，最多两位，比如 7.5 或 7.25</div>
       </div>
       <button class="save" id="saveBtn">记 下 来</button>
       <div class="edit-bar" id="editBar">
@@ -731,13 +731,28 @@ var editId=null;
 /* 明细默认只露最近 3 天；每次换页都会自动收起 */
 var listExpanded=false;
 function monthRec(ym){return S.records.filter(function(r){return r.date.slice(0,7)===ym;});}
+/* 每一笔记录自己记住「当时」的时薪。
+   这样改了时薪之后，以前记的账金额不会被倒着改掉 —— 只有之后新记的用新时薪。 */
+function recRate(r){
+  var v=r?Number(r.rate):NaN;
+  return (isFinite(v)&&v>0)?v:(Number(S.rate)||0);
+}
+/* 老记录没有 rate 字段：按当前时薪冻结一次存下来，之后改时薪就不再影响它们 */
+(function freezeRates(){
+  if(!(Number(S.rate)>0))return;
+  var changed=false;
+  S.records.forEach(function(r){
+    if(!(Number(r.rate)>0)){r.rate=Number(S.rate);changed=true;}
+  });
+  if(changed)save();
+})();
 function yearRec(y){var ys=String(y);return S.records.filter(function(r){return r.date.slice(0,4)===ys;});}
 
 /* ========== 渲染：主页（本月 / 以前某个月） ========== */
 function render(){
   var ym=viewYM, m=parseInt(ym.slice(5,7),10), isCur=(ym===ymNow());
   var rs=monthRec(ym), total=0, hours=0;
-  rs.forEach(function(r){total+=r.hours*S.rate;hours+=r.hours;});
+  rs.forEach(function(r){total+=r.hours*recRate(r);hours+=r.hours;});
   $("monthLabel").textContent=isCur?"这个月赚了":(m+"月赚了");
   $("monthTitle").textContent=ym.slice(0,4)+"年"+m+"月";
   $("monthMoney").textContent=money(total);
@@ -764,7 +779,7 @@ function renderList(rs){
     var w=WD[new Date(r.date+"T00:00:00").getDay()];
     return '<div class="row">'
       +'<div class="rd"><b>'+r.date.slice(5)+'</b><span>周'+w+' · '+tn(r.hours)+' 小时</span></div>'
-      +'<div class="rm">'+money(r.hours*S.rate)+'<span> 元</span></div>'
+      +'<div class="rm">'+money(r.hours*recRate(r))+'<span> 元</span></div>'
       +'<button class="re" data-edit="'+r.id+'">修改</button>'
       +'</div>';
   }).join("");
@@ -779,7 +794,7 @@ function renderList(rs){
 /* ========== 渲染：一年 ========== */
 function renderYear(){
   var rs=yearRec(curY),total=0,hours=0;
-  rs.forEach(function(r){total+=r.hours*S.rate;hours+=r.hours;});
+  rs.forEach(function(r){total+=r.hours*recRate(r);hours+=r.hours;});
   $("yearText").textContent=curY+" 年";
   $("yearMoney").textContent=money(total);
   $("yearHours").textContent=tn(hours);
@@ -787,9 +802,8 @@ function renderYear(){
 
   var ms=[],maxV=0;
   for(var m=1;m<=12;m++){
-    var key=curY+"-"+pad(m),h=0,dy=0;
-    rs.forEach(function(r){ if(r.date.slice(0,7)===key){ h+=r.hours; dy++; } });
-    var v=h*S.rate;
+    var key=curY+"-"+pad(m),h=0,dy=0,v=0;
+    rs.forEach(function(r){ if(r.date.slice(0,7)===key){ h+=r.hours; dy++; v+=r.hours*recRate(r); } });
     if(v>maxV)maxV=v;
     ms.push({m:m,hours:h,money:v,days:dy});
   }
@@ -1003,6 +1017,7 @@ function beginEdit(id){
   $("saveBtn").textContent="保存修改";
   $("editBar").classList.add("show");
   $("feedback").classList.remove("show");
+  $("hoursHint").textContent="这一笔按 "+tn(recRate(r))+" 元/小时算，改时薪不会影响它";
   window.scrollTo({top:0,behavior:"smooth"});
   setTimeout(function(){hi.focus();},320);
 }
@@ -1010,6 +1025,7 @@ function endEdit(keepFeedback){
   editId=null;
   $("saveBtn").textContent="记 下 来";
   $("editBar").classList.remove("show");
+  $("hoursHint").textContent="可以填小数，最多两位，比如 7.5 或 7.25";
   if(!keepFeedback){
     hi.value="";
     resetDateSmart();
@@ -1057,13 +1073,14 @@ $("saveBtn").onclick=function(){
     if(rec){
       rec.date=d;
       rec.hours=h;
+      // 改时长不动钱：这一笔仍按它当初的时薪算，改时薪不倒着改旧账
       // 若这天本来另有一条，去掉旧的，保留正在改的这条
       S.records=S.records.filter(function(x){return x.id===rec.id||x.date!==d;});
     }
     save();
     endEdit(true);
     renderAll();
-    fb.textContent="改好了："+d.slice(5)+" · "+tn(h)+" 小时 = "+money(h*S.rate)+" 元";
+    fb.textContent="改好了："+d.slice(5)+" · "+tn(h)+" 小时 = "+money(h*recRate(rec))+" 元";
     fb.classList.add("show");
     toast("已修改");
     hi.value="";
@@ -1078,8 +1095,9 @@ $("saveBtn").onclick=function(){
 
   var hit=null;
   S.records.forEach(function(r){if(r.date===d)hit=r;});
-  if(hit){hit.hours=h;}
-  else{S.records.push({id:Date.now()+"",date:d,hours:h});}
+  // 现在记的账一律用现在的时薪（覆盖同一天也一样）
+  if(hit){hit.hours=h;hit.rate=S.rate;}
+  else{S.records.push({id:Date.now()+"",date:d,hours:h,rate:S.rate});}
   save();
   renderAll();
 
@@ -1218,6 +1236,9 @@ $("importBtn").onclick=function(){
         var o=JSON.parse(fr.result);
         if(!o||!Array.isArray(o.records))throw 0;
         S={rate:o.rate||0,records:o.records};
+        // 导入的老备份里可能没有 rate 字段：按备份里的时薪冻结下来
+        var base=Number(S.rate)>0?Number(S.rate):0;
+        S.records.forEach(function(r){if(!(Number(r.rate)>0))r.rate=base;});
         save();renderAll();toast("导入了 "+o.records.length+" 条记录");
       }catch(e){toast("文件不对，导入失败");}
     };
